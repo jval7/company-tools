@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "company-tools"
+version = "0.1.0"
+description = ""
+authors = ["Jhon Valderrama <jhonvalderramaa7@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pydantic = "^2.9.2"
+shortuuid = "^1.0.13"
+streamlit = "^1.39.0"
+colorama = "^0.4.6"
+aioconsole = "^0.8.0"
+aiocron = "^1.8"
+aiosmtplib = "^3.0.2"
+aiofiles = "^24.1.0"
+boto3 = "^1.35.49"
+pydantic-settings = "^2.6.0"
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.10.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
