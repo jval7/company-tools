@@ -3,9 +3,10 @@ from colorama import Fore, Back, Style
 
 from app.register import usecases
 from app.register.entrypoints.view import utils
+from app.register.entrypoints.cron import Sync
 
 
-async def start_view(register: usecases.Register) -> None:
+async def start_view(register: usecases.Register, syncronizer: Sync = None) -> None:
     while True:
         cmd = None
         try:
@@ -67,6 +68,14 @@ async def start_view(register: usecases.Register) -> None:
                 case "h" | "help":
                     cmd = "h"
                     utils.show_commands()
+                case "sync" | "s":
+                    cmd = "sync"
+                    if syncronizer:
+                        print("Iniciando sincronización manual...")
+                        await syncronizer.sync_bills()
+                        print("Sincronización completada.")
+                    else:
+                        print("Error: Sincronizador no disponible")
                 case _:
                     print("Comando no encontrado")
         except Exception as e:

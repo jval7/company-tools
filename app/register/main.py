@@ -23,7 +23,7 @@ async def start_app() -> None:
             time_sync=configs.time_to_sync,
             time_clean=configs.time_to_clean,
         ),
-        entrypoints.start_view(register=register),
+        entrypoints.start_view(register=register, syncronizer=syncronizer),
     )
 
 
