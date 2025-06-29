@@ -103,4 +103,5 @@ def show_commands() -> None:
     print("6. p | + - Imprimir la última factura")
     print("7. . - Abrir la caja registradora")
     print("8. h | help - Mostrar los comandos disponibles")
+    print("9. sync | s - Sincronizar manualmente con DynamoDB")
     print("+++++++++++++")
