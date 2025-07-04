@@ -10,7 +10,6 @@ async def start_view(register: usecases.Register, syncronizer: Sync = None) -> N
     while True:
         cmd = None
         try:
-            utils.clear()
             command = str(await aioconsole.ainput("Digita el valor Producto: "))
             match command:
                 case _ if command.isdigit():
