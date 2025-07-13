@@ -19,5 +19,5 @@ def lambda_handler(event, context):  # type: ignore
             path=event.get("rawPath"), params=event.get("queryStringParameters")
         )
     except Exception as e:
-        response = {"statusCode": 500, "body": str(e)}
+        raise e
     return {"statusCode": 200, "body": json.dumps(response)}

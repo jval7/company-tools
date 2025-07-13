@@ -19,8 +19,14 @@ def convert_to_posix(date_str: str) -> int:
     # Define the date format
     date_format = "%d-%m-%Y"
 
+    # Define the Colombian time zone offset (UTC-5)
+    colombia_tz = timezone(timedelta(hours=-5))
+
     # Parse the date string into a datetime object
     date_obj = datetime.strptime(date_str, date_format)
+
+    # Apply Colombian timezone to the datetime object
+    date_obj = date_obj.replace(tzinfo=colombia_tz)
 
     # Convert the datetime object to a POSIX timestamp
     posix_timestamp = int(date_obj.timestamp())
@@ -40,7 +46,10 @@ def get_first_and_last_day_posix() -> tuple[int, int]:
     first_day = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
     # Get the last day of the current month
-    next_month = first_day.replace(month=first_day.month % 12 + 1, day=1)
+    if first_day.month == 12:
+        next_month = first_day.replace(year=first_day.year + 1, month=1, day=1)
+    else:
+        next_month = first_day.replace(month=first_day.month + 1, day=1)
     last_day = next_month - timedelta(days=1)
     last_day = last_day.replace(hour=23, minute=59, second=59, microsecond=999999)
 

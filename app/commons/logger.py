@@ -48,5 +48,45 @@ def setup_logger(name: str = "app_logger", log_file: str = "app.log", level: int
     return logger
 
 
+def setup_console_logger(name: str = "console_logger", level: int = logging.INFO) -> logging.Logger:
+    """
+    Set up a console-only logger (no file logging)
+
+    Args:
+        name: Logger name
+        level: Logging level
+
+    Returns:
+        Configured logger instance that only logs to console
+    """
+    # Create logger
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+
+    # Avoid adding multiple handlers if logger already exists
+    if logger.handlers:
+        return logger
+
+    # Create console handler for all log levels
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(level)
+
+    # Create formatter
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(module)s.%(funcName)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+
+    # Add formatter to handler
+    console_handler.setFormatter(formatter)
+
+    # Add handler to logger
+    logger.addHandler(console_handler)
+
+    return logger
+
+
+
+
 
 logger = setup_logger()
