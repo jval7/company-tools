@@ -1,4 +1,6 @@
 import json
+import os
+import tempfile
 from os import path
 from typing import Callable
 
@@ -21,9 +23,9 @@ class Sync:
         """
         Sincroniza todos los días que no están sincronizados con DynamoDB
         """
-        # load daily shifts from file
-        async with aiofiles.open("daily_shifts.json", "r") as file:
-            data_loaded = json.loads(await file.read())
+        async with adapters.lock:
+            async with aiofiles.open(adapters.FILE_PATH, "r") as file:
+                data_loaded = json.loads(await file.read())
             daily_shifts = {
                 int(k): model.DailyShift.parse_obj(v) for k, v in data_loaded.items()
             }
@@ -102,8 +104,9 @@ class Sync:
         current_day = time.get_posix_time_until_day()
 
         # Cargar datos actuales
-        async with aiofiles.open("daily_shifts.json", "r") as file:
-            data_loaded = json.loads(await file.read())
+        async with adapters.lock:
+            async with aiofiles.open(adapters.FILE_PATH, "r") as file:
+                data_loaded = json.loads(await file.read())
             daily_shifts = {
                 int(k): model.DailyShift.parse_obj(v) for k, v in data_loaded.items()
             }
@@ -191,17 +194,17 @@ class Sync:
 
     async def _write_cleaned_shifts(self, cleaned_shifts: dict) -> None:
         """
-        Escribe los datos limpios de forma segura
+        Escribe los datos limpios de forma segura usando escritura atómica
         """
-        # Escribir al archivo
-        async with aiofiles.open("daily_shifts.json", "w") as file:
-            serialized_shifts = {
-                k: v.model_dump() for k, v in cleaned_shifts.items()
-            }
-            await file.write(json.dumps(serialized_shifts, indent=2))
-
-        # Actualizar memoria
-        self.in_memory_repo._daily_shifts = cleaned_shifts
+        async with adapters.lock:
+            serialized_shifts = {k: v.model_dump() for k, v in cleaned_shifts.items()}
+            dir_name = os.path.dirname(os.path.abspath(adapters.FILE_PATH))
+            tmp_path = None
+            with tempfile.NamedTemporaryFile("w", dir=dir_name, delete=False, suffix=".tmp") as tmp:
+                tmp.write(json.dumps(serialized_shifts, indent=2))
+                tmp_path = tmp.name
+            os.replace(tmp_path, adapters.FILE_PATH)
+            self.in_memory_repo._daily_shifts = cleaned_shifts
 
 
 async def set_up_sync_process(
