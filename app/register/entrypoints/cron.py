@@ -1,7 +1,6 @@
 import json
 import os
 import tempfile
-from os import path
 from typing import Callable
 
 import aiocron
@@ -10,6 +9,8 @@ import aiofiles  # type: ignore
 from app.commons import time
 from app.commons.logger import logger
 from app.register import model, ports, adapters
+
+LAST_BILL_ID_PATH = "last_bill_id.json"
 
 
 class Sync:
@@ -73,8 +74,10 @@ class Sync:
         # Solo actualizar last_bill_id si se sincronizó al menos un día
         if synced_count > 0 and last_synced_bill_id:
             try:
-                async with aiofiles.open("last_bill_id.json", "w") as file:
-                    await file.write(json.dumps({"last_id": last_synced_bill_id}))
+                async with adapters.lock:
+                    await self._atomic_write_json(
+                        LAST_BILL_ID_PATH, {"last_id": last_synced_bill_id}
+                    )
                 logger.info(f"Sync completed: {synced_count} days synced")
             except Exception as e:
                 logger.error(f"Failed to update last_bill_id: {str(e)}")
@@ -82,20 +85,36 @@ class Sync:
             logger.error("No days could be synced")
 
     @staticmethod
+    async def _atomic_write_json(path_file: str, data: dict) -> None:
+        """
+        Escribe JSON de forma atómica (tempfile + os.replace) para que el
+        archivo nunca quede en un estado parcial/corrupto. No adquiere el lock;
+        el llamante es responsable de sincronizar el acceso.
+        """
+        dir_name = os.path.dirname(os.path.abspath(path_file)) or "."
+        fd, tmp_path = tempfile.mkstemp(dir=dir_name, suffix=".tmp")
+        os.close(fd)
+        try:
+            async with aiofiles.open(tmp_path, "w") as tmp:
+                await tmp.write(json.dumps(data))
+            os.replace(tmp_path, path_file)
+        except Exception:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+            raise
+
+    @staticmethod
     async def _load_bill_id() -> str:
         # load last bill id from file
-        if not path.exists("last_bill_id.json"):
-            async with aiofiles.open("last_bill_id.json", "w") as file:
-                await file.write(json.dumps({"last_id": "no_id"}))
-            return "no_id"
-        async with aiofiles.open("last_bill_id.json", "r+") as file:
-            content = await file.read()
-            if not content:
-                last_bill_id = "no_id"
-                await file.write(json.dumps({"last_id": last_bill_id}))
-            else:
-                last_bill_id = json.loads(content)["last_id"]
-            return last_bill_id
+        async with adapters.lock:
+            try:
+                async with aiofiles.open(LAST_BILL_ID_PATH, "r") as file:
+                    content = await file.read()
+                return json.loads(content)["last_id"]  # type: ignore
+            except (FileNotFoundError, json.JSONDecodeError, KeyError):
+                # archivo ausente, vacío o corrupto -> reiniciar de forma segura
+                await Sync._atomic_write_json(LAST_BILL_ID_PATH, {"last_id": "no_id"})
+                return "no_id"
 
     async def clean_daily_shifts(self) -> None:
         """
