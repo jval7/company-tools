@@ -1,5 +1,7 @@
 import asyncio
 import json
+import os
+import tempfile
 from decimal import Decimal
 
 import boto3
@@ -8,10 +10,12 @@ from app.commons import time
 from app.register import ports, model
 
 lock = asyncio.Lock()
+FILE_PATH = "daily_shifts.json"
 
 
 class InMemoryRepo(ports.Repository):
-    def __init__(self, path_file: str = "daily_shifts.json") -> None:
+    def __init__(self, path_file: str = FILE_PATH) -> None:
+        self._path_file = path_file
         self._daily_shifts = self._load_daily_shifts_from_file(path_file)
 
     @staticmethod
@@ -33,15 +37,17 @@ class InMemoryRepo(ports.Repository):
         return self._daily_shifts.get(id_, None)
 
     async def save(self, daily_shift: model.DailyShift) -> None:
-        self._daily_shifts[daily_shift.id] = daily_shift
-        await asyncio.to_thread(self._write_daily_shift_to_file)
+        async with lock:
+            self._daily_shifts[daily_shift.id] = daily_shift
+            await asyncio.to_thread(self._write_daily_shift_to_file)
 
     def _write_daily_shift_to_file(self) -> None:
-        with open("daily_shifts.json", "w") as file:
-            serialized_daily_shifts = {
-                k: v.model_dump() for k, v in self._daily_shifts.items()
-            }
-            json.dump(serialized_daily_shifts, file)
+        serialized = {k: v.model_dump() for k, v in self._daily_shifts.items()}
+        dir_name = os.path.dirname(os.path.abspath(self._path_file))
+        with tempfile.NamedTemporaryFile("w", dir=dir_name, delete=False, suffix=".tmp") as tmp:
+            json.dump(serialized, tmp)
+            tmp_path = tmp.name
+        os.replace(tmp_path, self._path_file)
 
     def clean_daily_shifts(self) -> None:
         current_id_shift = time.get_posix_time_until_day()
